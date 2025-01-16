@@ -1,0 +1,75 @@
+Introduction to Domain Name System (DNS)
+The Domain Name System (DNS) is a hierarchical and decentralized naming system used to resolve human-readable domain names (e.g., example.com) into IP addresses (e.g., 192.0.2.1) that computers use to identify each other on the internet. It acts as the "phonebook" of the internet, enabling users to access websites and services without memorizing complex IP addresses.
+
+How DNS Works
+DNS operates using a client-server model and performs the following steps during a typical lookup:
+
+User Request: A user types a URL (e.g., www.example.com) in a browser.
+Recursive Resolver:
+The browser queries a DNS resolver (provided by the ISP or a public resolver like Google DNS at 8.8.8.8).
+The resolver acts as a middleman to find the IP address.
+Root Servers:
+The resolver queries a root server, which responds with the location of the appropriate Top-Level Domain (TLD) server (e.g., .com, .org).
+TLD Servers:
+The resolver queries the TLD server, which provides the location of the authoritative name server for the domain.
+Authoritative Name Server:
+This server holds the IP address for the requested domain and sends it to the resolver.
+Final Response:
+The resolver sends the IP address to the user's browser, which uses it to establish a connection with the target server.
+
+
+DNS Records:
+
+A Record: Maps a domain name to an IPv4 address.
+AAAA Record: Maps a domain name to an IPv6 address.
+CNAME Record: Alias of one domain to another.
+MX Record: Specifies mail servers for a domain.
+TXT Record: Stores text information (e.g., SPF, DKIM).
+
+
+
+Steps in the DNS Resolution Process:
+User Enters Domain Name:
+
+You type www.example.com in your browser's address bar.
+Browser Checks Cache:
+
+The browser checks its local cache to see if it already knows the IP address for www.example.com.
+If found, it skips further steps. If not, it proceeds to query a DNS resolver.
+Query to Recursive Resolver:
+
+The browser sends a query to a recursive resolver (e.g., provided by your ISP or a public DNS like Google 8.8.8.8).
+Example: "What is the IP address for www.example.com?"
+Contact Root DNS Server:
+
+The resolver queries a Root DNS Server (one of 13 globally distributed root server clusters).
+The root server responds with the location of the TLD DNS server for .com.
+Contact TLD DNS Server:
+
+The resolver queries the .com TLD server.
+The TLD server responds with the location of the authoritative DNS server for example.com.
+Contact Authoritative DNS Server:
+
+The resolver queries the authoritative DNS server for example.com.
+The authoritative server responds with the IP address for www.example.com, e.g., 93.184.216.34.
+Return IP Address to Browser:
+
+The recursive resolver sends the IP address (93.184.216.34) back to the browser.
+Establish Connection:
+
+The browser uses the IP address to connect to the web server hosting www.example.com and fetches the website.
+
+
+DNS Record Example for www.example.com:
+A Record:
+
+www.example.com -> 93.184.216.34 (Maps domain to IPv4 address)
+CNAME Record (Alias Example):
+
+blog.example.com -> www.example.com (Alias for www.example.com)
+MX Record:
+
+example.com -> mail.example.com (Specifies mail server)
+TXT Record:
+
+example.com -> "v=spf1 include:_spf.google.com ~all" (Used for email verification)
