@@ -1,0 +1,201 @@
+
+
+### **API Contract**
+
+#### **Endpoint: Check Rate Limit**
+- **HTTP Method:** `POST`
+- **URL:** `/api/ratelimit/check`
+- **Request Headers:**
+  - `Authorization`: Bearer token or API key
+  - `X-Client-ID`: Client identifier (optional if embedded in the token)
+
+- **Request Body:**
+  ```json
+  {
+    "resource": "/api/resource",
+    "action": "GET"
+  }
+  ```
+
+- **Response:**
+  - **200 OK:** Request allowed
+    ```json
+    {
+      "allowed": true,
+      "remainingRequests": 42,
+      "resetAfter": "30 seconds"
+    }
+    ```
+  - **429 Too Many Requests:** Rate limit exceeded
+    ```json
+    {
+      "allowed": false,
+      "retryAfter": "10 seconds"
+    }
+    ```
+
+---
+
+### **Sample C# Implementation**
+
+#### **1. Data Model**
+```csharp
+public class RateLimitResponse
+{
+    public bool Allowed { get; set; }
+    public int RemainingRequests { get; set; }
+    public TimeSpan ResetAfter { get; set; }
+    public TimeSpan? RetryAfter { get; set; }
+}
+
+public class RateLimitRequest
+{
+    public string Resource { get; set; }
+    public string Action { get; set; }
+}
+```
+
+---
+
+#### **2. Rate Limiter Service**
+```csharp
+using System;
+using System.Collections.Concurrent;
+
+public class RateLimiter
+{
+    private readonly ConcurrentDictionary<string, (int count, DateTime resetTime)> _rateLimits = new();
+    private readonly int _limit;
+    private readonly TimeSpan _window;
+
+    public RateLimiter(int limit, TimeSpan window)
+    {
+        _limit = limit;
+        _window = window;
+    }
+
+    public RateLimitResponse CheckRateLimit(string clientId, string resource)
+    {
+        string key = $"{clientId}:{resource}";
+        var now = DateTime.UtcNow;
+
+        if (!_rateLimits.TryGetValue(key, out var entry) || now >= entry.resetTime)
+        {
+            _rateLimits[key] = (1, now + _window);
+            return new RateLimitResponse
+            {
+                Allowed = true,
+                RemainingRequests = _limit - 1,
+                ResetAfter = _window
+            };
+        }
+
+        if (entry.count < _limit)
+        {
+            _rateLimits[key] = (entry.count + 1, entry.resetTime);
+            return new RateLimitResponse
+            {
+                Allowed = true,
+                RemainingRequests = _limit - (entry.count + 1),
+                ResetAfter = entry.resetTime - now
+            };
+        }
+
+        return new RateLimitResponse
+        {
+            Allowed = false,
+            RetryAfter = entry.resetTime - now
+        };
+    }
+}
+```
+
+---
+
+#### **3. API Controller**
+```csharp
+using Microsoft.AspNetCore.Mvc;
+
+[ApiController]
+[Route("api/ratelimit")]
+public class RateLimitController : ControllerBase
+{
+    private readonly RateLimiter _rateLimiter;
+
+    public RateLimitController()
+    {
+        // Configure rate limiter (e.g., 100 requests per 1 minute)
+        _rateLimiter = new RateLimiter(100, TimeSpan.FromMinutes(1));
+    }
+
+    [HttpPost("check")]
+    public IActionResult CheckRateLimit([FromHeader(Name = "X-Client-ID")] string clientId, 
+                                        [FromBody] RateLimitRequest request)
+    {
+        if (string.IsNullOrEmpty(clientId))
+        {
+            return BadRequest("Client ID is required.");
+        }
+
+        var result = _rateLimiter.CheckRateLimit(clientId, request.Resource);
+
+        if (result.Allowed)
+        {
+            return Ok(new
+            {
+                allowed = result.Allowed,
+                remainingRequests = result.RemainingRequests,
+                resetAfter = result.ResetAfter.ToString("g")
+            });
+        }
+        else
+        {
+            return StatusCode(429, new
+            {
+                allowed = result.Allowed,
+                retryAfter = result.RetryAfter?.ToString("g")
+            });
+        }
+    }
+}
+```
+
+---
+
+#### **4. Example Request and Response**
+
+**Request:**
+```http
+POST /api/ratelimit/check
+Authorization: Bearer <token>
+X-Client-ID: user123
+
+{
+  "resource": "/api/resource",
+  "action": "GET"
+}
+```
+
+**Response (Allowed):**
+```json
+{
+  "allowed": true,
+  "remainingRequests": 99,
+  "resetAfter": "59 seconds"
+}
+```
+
+**Response (Rate Limit Exceeded):**
+```json
+{
+  "allowed": false,
+  "retryAfter": "30 seconds"
+}
+```
+
+---
+
+This setup provides a basic yet scalable rate limiter. You can extend it to include:
+1. **Redis-based distributed storage** for a scalable, multi-node setup.
+2. Configurations for role-based or endpoint-specific limits.
+3. Metrics logging using tools like Application Insights or Serilog.
